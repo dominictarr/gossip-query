@@ -21,6 +21,10 @@ Other times you do a query and there can be multiple valid answers:
 Results of a keyword search, which peers have a file, the later is more general,
 so the former can be handled as a special case.
 
+when forwarding requests (3) peers may choose who to forward
+to or not, so a spectrum between gossip flood, to gnutella,
+to DHT is possible.
+
 ## format of a request
 
 A request is a arbitary string, with a hop count. The hop count is
