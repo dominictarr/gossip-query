@@ -24,8 +24,30 @@ function connect (a, b) {
   b.peers[a.id] = true
 }
 
+function random (n, create, pair) {
+  var first = create()
+  var peers = [first]
+  while(--n) {
+    var newest = create()
+    pair(newest, peers[~~(Math.random()*peers.length)])
+    peers.push(newest)
+  }
+  return first
+}
+
+
+function clique (n, create, pair) {
+  var peers = []
+  for(var i = 0;i < n; i++) {
+    peers.push(create())
+    for(var j = 0; j < i; j++)
+      pair(peers[i], peers[j])
+  }
+  return peers[0]
+}
+
 function evolve(network, has, work) {
-  var A = 0
+  var A = 0, M = 0
   var loop = true
   while (loop) {
     loop = false
@@ -40,10 +62,10 @@ function evolve(network, has, work) {
     loop = !!events.length
     if(next) {
       A++
-      work(next)
+      M += work(next, A)
     }
   }
-  return A
+  return M
 }
 
 function has (peer) {
@@ -51,19 +73,22 @@ function has (peer) {
 }
 
 //broadcast to peers, except the one you received the message from.
-function work (peer) {
+function work (peer, step) {
+  var N = 0
   var data = peer.input.shift()
   if(!data) throw new Error('expected message')
   //do not forward if we have already seen this message
-  if(peer.state[data.value]) return
+  if(peer.state[data.value]) return 0
 
   peer.state[data.value] = true
   for(var k in peer.peers) {
     if(+k !== data.key) {
       console.log(peer.id,'->',k, {value: data.value, key: peer.id})
+      N++
       network[k].input.push({value: data.value, key: peer.id})
     }
   }
+  return N
 }
 
 tape('ring', function (t) {
@@ -79,7 +104,7 @@ tape('ring', function (t) {
 
   var A = evolve(network, has, work)
 
-  t.equal(A, 5) //5 messages moved initial, + 4 passes to a peer.
+  t.equal(A, 4) //5 messages moved initial, + 4 passes to a peer.
 
   for(var k in network)
     t.ok(network[k].state.foo)
@@ -102,7 +127,7 @@ tape('chain', function (t) {
 
   var A = evolve(network, has, work)
 
-  t.equal(A, 3) //5 messages moved initial, + 4 passes to a peer.
+  t.equal(A, 2)
 
   for(var k in network)
     t.ok(network[k].state.foo)
@@ -112,16 +137,6 @@ tape('chain', function (t) {
 })
 //and then verify that everyone received the message.
 
-function random (n, create, pair) {
-  var first = create()
-  var peers = [first]
-  while(--n) {
-    var newest = create()
-    pair(newest, peers[~~(Math.random()*peers.length)])
-    peers.push(newest)
-  }
-  return first
-}
 
 tape('random', function (t) {
   network = {}
@@ -132,8 +147,8 @@ tape('random', function (t) {
 
   var A = evolve(network, has, work)
 
-  t.ok(A >= 7, A+' >= 7') //5 messages moved initial, + 4 passes to a peer.
-  t.ok(A < 7*2-1) //5 messages moved initial, + 4 passes to a peer.
+  t.ok(A >= 6, A+' >= 6') //5 messages moved initial, + 4 passes to a peer.
+  t.ok(A < 6*2-1) //5 messages moved initial, + 4 passes to a peer.
 
   for(var k in network)
     t.ok(network[k].state.foo, 'peer'+k+' has foo')
@@ -141,26 +156,22 @@ tape('random', function (t) {
   t.end()
 })
 
-
-function clique (n, create, pair) {
-  var peers = []
-  for(var i = 0;i < n; i++) {
-    peers.push(create())
-    for(var j = 0; j < i; j++)
-      pair(peers[i], peers[j])
-  }
-  return peers[0]
-}
-
+//since this network is over connected
+//messages are resent, and only blocked when a peer receives a message twice.
+//a clique of 4 sends 9 messages, but if any message moves, it does one more run
+//through the network.
 tape('fully connected', function (t) {
   network = {}
   var a = clique(4, peer, connect)
-  console.log(network)
   a.input.push({value:'foo', key: 0})
 
   var A = evolve(network, has, work)
 
-  t.equal(A, 4)
+  for(var k in network)
+    t.ok(network[k].state.foo, 'peer'+k+' has foo')
+  t.ok(A>=4)
+  t.ok(A<=10)
   t.end()
 })
 
+//next step: implement "databases" as if it's a peer nested inside a peer. 
