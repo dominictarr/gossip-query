@@ -37,6 +37,9 @@ is the size of the blob.
 in a search query, the request would be the query string,
 and the result is responses (which might be message ids or something like that)
 
+for out of order messages, the response is just the message, and there
+can never be more than one result.
+
 for protocols that can have multiple responses, a reduce function is supplied
 that combines those results.
 
