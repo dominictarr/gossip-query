@@ -1,54 +1,82 @@
 # gossip-query
 
-this is a flooding gossip search for p2p.
+flooding gossip search for p2p.
 
-peers make a request, and if they do not have that record
-they forward it to their current peers. (and add it to a table of things they are looking for)
+## pseudocode
 
-when they connect to a new peer, they'll request everything in the current lookup table.
-
-when they receive 
-
-1. user or peer asks for something.
-2. check if you already have result in your cache.
-3. ask peers for the thing.
-4. receive the thing, process it
-(async, this can be retriving it, or waiting for some more answers, or confirming it in some way)
-5. broadcast answers to anyone who had requested it from you.
-
-Sometimes a query has an exact answer: Asking for something by hash.
-Other times you do a query and there can be multiple valid answers:
-Results of a keyword search, which peers have a file, the later is more general,
-so the former can be handled as a special case.
-
-when forwarding requests (3) peers may choose who to forward
-to or not, so a spectrum between gossip flood, to gnutella,
-to DHT is possible.
-
-## format of a request
-
-A request is a arbitary string, with a hop count. The hop count is
-the distance to the originating peer. The request is from the local
-user, the hop count will be 1. If it was from a friend it will be 2,
-a friend of a friend will be 3, etc. This allows a configuration
-setting for the maximum number of hops, and also to perform flow
-control, where an overloaded peer can drop requests from with
-higher hop counts (helping nearby peers, instead of distant peers)
-
-hmm, combine querys into a json object with hops?
-
-``` js
-{
-  <query>: <hops>,...
-}
 ```
-this way any ongoing queries can be batched on a new connection.
+something is requested,
+check for it locally (async),
+    if you have it
+      respond to peers who requested
+    else
+      ask peers,
+      process response (async)
+      respond to peers who requested
+```
+> note: "peers who requested" can be the local user or a remote peer.
+  if a second request is made for queries already in the system,
+  the requestor is just added to the waiting callbacks, instead of starting
+  that request over.
+
+## protocol
+
+requests are sent in the form of a JSON object, with the query string
+as the key
+{<query>: <hops> || <response>,...}
+
+this way, more than one request/response can be broadcast in a single packet.
+normally, `<hops>` is a negative integer
+(but could be some other representation
+of the weighting of how important the request is, as long as it's distinct
+from any value of `<response>`)
+`<response>` can be any value, and in some cases it allows only one value,
+for example,
+in ssb-blobs the request is the blob hash, and the response
+is the size of the blob.
+in a search query, the request would be the query string,
+and the result is responses (which might be message ids or something like that)
+
+for protocols that can have multiple responses, a reduce function is supplied
+that combines those results.
+
+## data structure
+
+the state of the protocol is represented as a {} object of the state
+of each request.
+
+```
+{<query>: <state>,...}
+```
+`state` holds information about what phase this query is in,
+this contains a list of peers (can include the local user) who have
+made a particular query, (and that the response will be transmitted to,
+once received) it contains the value received (if we have it)
+
+requested values should be cached for some length of time, but eventually
+gc'd (maybe combining a count and a time limit)
+
+> i'm not completely clear on what the state object needs to look like
+  it might need a map of which peers have requested and which peers have
+  been sent data.
+
+## pull based
+
+to make the protocol properly pullish (and respect back pressure)
+i think the right idea is that when a peer is ready for data,
+iterate over the state objects and check which have data for them,
+this way it can just wait as long as necessary if the peer doesn't
+want anything yet.
+
+
+
+## processing
+
+the processing step, (after a response is received from a peer)
+is optional - but in the case of ssb-blobs would be used to request
+that blob from the peer.
 
 ## License
 
 MIT
-
-
-
-
 
