@@ -30,6 +30,7 @@ what if we just started with local queries and results?
 module.exports = function (opts) {
   //opts has {check, process, isQuery, isResponse}
   var state = {}
+  var localCbs = {}
 
   var initialWeight = opts.initialWeight || -1
   var increase = opts.increase || function (n) { return Number(n) + 1 }
@@ -64,6 +65,11 @@ module.exports = function (opts) {
           state[k].ready = true
           if(value && !state[k].value) {
             state[k].value = value
+            var cbs = localCbs[k]
+            if (cbs) {
+              delete localCbs[k]
+              while (cbs.length) cbs.shift()(null, value)
+            }
           }
         })
       }
@@ -160,6 +166,35 @@ module.exports = function (opts) {
 
     query: function (query, cb) {
       //add to state object and update
+      if(state[k]) {
+        if(state[k].ready) {
+          cb(null, state[k].value)
+        }
+        else if(!state[k].query) {
+          update = true
+          state[k].query = true
+          localCbs[k] = [cb]
+        }
+        else {
+          localCbs[k].push(cb)
+        }
+      }
+      else {
+        update = true
+        state[k] = {
+          ready: false,
+          query: true,
+          checked: false,
+          checking: false,
+          weight: initialWeight,
+          value: null,
+          requestedBy: {},
+          requestedFrom: {},
+          respondedTo: {},
+        }
+        localCbs[k] = [cb]
+      }
+      if(update) next()
     }
   }
 }
