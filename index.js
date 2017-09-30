@@ -144,7 +144,7 @@ module.exports = function (opts) {
                   state[k].requestedBy[peerId] = true
                 }
                 else {
-                  state[k] = initial(data[k])
+                  state[k] = initial(increase(data[k]))
                   state[k].requestedBy[peerId] = true
                 }
               }
