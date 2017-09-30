@@ -166,11 +166,6 @@ module.exports = function (opts) {
         if(state[k].ready) {
           cb(null, state[k].value)
         }
-        else if(!state[k].query) {
-          update = true
-          state[k].query = true
-          localCbs[k] = [cb]
-        }
         else {
           localCbs[k].push(cb)
         }
@@ -184,4 +179,5 @@ module.exports = function (opts) {
     }
   }
 }
+
 
