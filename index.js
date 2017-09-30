@@ -7,6 +7,17 @@
   results (respond to any current queries)
 */
 
+var STATES = {
+  queried: 1,
+  checking: 2,
+  checked: 3,
+  requesting: 4,
+  requested: 5,
+  processing: 6,
+  processed: 7,
+  ready: 8
+}
+
 module.exports = function (opts) {
   //opts has {check, process, isQuery, isResponse}
   var state = {}
