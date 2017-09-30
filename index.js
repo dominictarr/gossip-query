@@ -11,11 +11,15 @@ var STATES = {
   queried: 1,
   checking: 2,
   checked: 3,
-  requesting: 4,
-  requested: 5,
+
+  //I realized that this state is maybe not necessary
+  //since we actually track this on a per peer basis.
+  //requesting: 4,
+
+  responded: 5, //we have received at least one response
+
   processing: 6,
-  processed: 7,
-  ready: 8
+  processed: 7 //now we can broadcast this
 }
 
 module.exports = function (opts) {
@@ -35,12 +39,11 @@ module.exports = function (opts) {
   function onUpdate () {
     for(var k in state) {
       //check the local store when new queries are added
-      if(!state[k].checked && !state[k].checking) {
-        state[k].checking = true
+      if(state[k].state === STATES.queried) {
+        state[k].state = STATES.checking
         opts.check(k, function (err, value) {
           if(err) console.trace(err) // TODO: delete or reject query?
-          state[k].checking = false
-          state[k].checked = true
+          state[k].state = STATES.checked
           if(value && !state[k].value) {
             state[k].value = value
           }
@@ -48,16 +51,17 @@ module.exports = function (opts) {
       }
 
       //process items received
-      if(state[k].value != null && !state[k].processing && !state[k].ready) {
-        state[k].processing = true
+      if(state[k].value != null && state[k].state === STATES.responded) {
+        state[k].state = STATES.processing
         opts.process(k, state[k].value, function (err, value) {
           if(err) console.trace(err) // TODO: reject query?
-          state[k].processing = false
-          state[k].ready = true
+          state[k].state = STATES.processed
+          //this is the only place that localCbs is called,
+          //except for in query(key, cb) if key is already ready.
           if(value && !state[k].value) {
             state[k].value = value
-            var cbs = localCbs[k]
-            if (cbs) {
+            if (localCbs[k]) {
+              var cbs = localCbs[k])
               delete localCbs[k]
               while (cbs.length) cbs.shift()(null, value)
             }
@@ -69,9 +73,7 @@ module.exports = function (opts) {
 
   function initial (weight) {
     return {
-      ready: false,
-      checked: false,
-      checking: false,
+      state: STATES.queried,
       weight: weight,
       value: null,
       requestedBy: {},
@@ -99,9 +101,9 @@ module.exports = function (opts) {
             var data = {}
             for(var k in state) {
               if(
-                //ready means it's been processed,
-                //or we already had it locally (TODO).
-                state[k].ready &&
+                //this item has been received & processed, respond to any other peers
+                //idea: make respondedTo be a counter, for queries with multiple answers.
+                state[k].state === STATES.processed &&
                 state[k].requestedBy[peerId] &&
                 !state[k].respondedTo[peerId]
               ) {
@@ -109,8 +111,7 @@ module.exports = function (opts) {
                 data[k] = state[k].value
               }
               else if(
-                !state[k].ready &&
-                state[k].checked &&
+                state[k].state === STATES.checked &&
                 !state[k].requestedFrom[peerId]
               ) {
                 state[k].requestedFrom[peerId] = true
@@ -148,9 +149,13 @@ module.exports = function (opts) {
                 }
               }
               else if(isResponse(data[k])) {
-                //if this is a response,
-                state[k].value = data[k]
-                update = true
+                if(state[k].state == STATES.checked) {
+                  //what states can it be in here?
+                  //what if we are currently processing something and a new response arrives?
+                  state[k].state = STATES.responded
+                  state[k].value = data[k]
+                  update = true
+                }
               }
             }
             if(update) next()
@@ -163,12 +168,8 @@ module.exports = function (opts) {
     query: function (query, cb) {
       //add to state object and update
       if(state[k]) {
-        if(state[k].ready) {
-          cb(null, state[k].value)
-        }
-        else {
-          localCbs[k].push(cb)
-        }
+        if(state[k].state == STATES.processed) cb(null, state[k].value)
+        else localCbs[k].push(cb)
       }
       else {
         update = true
@@ -179,5 +180,4 @@ module.exports = function (opts) {
     }
   }
 }
-
 
