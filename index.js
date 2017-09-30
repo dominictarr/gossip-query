@@ -61,7 +61,7 @@ module.exports = function (opts) {
           if(value && !state[k].value) {
             state[k].value = value
             if (localCbs[k]) {
-              var cbs = localCbs[k])
+              var cbs = localCbs[k]
               delete localCbs[k]
               while (cbs.length) cbs.shift()(null, value)
             }
