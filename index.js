@@ -7,26 +7,6 @@
   results (respond to any current queries)
 */
 
-/*
-
-hmm, so I notice this is a chain of {}
-with async steps between them.
-
-hmm, or maybe they are input/output pairs
-and the output of one happens to be the input of another?
-
-OH! but if it's in your local cache, maybe you go straight
-to results without boardcasting?
-
-also, processing on messages received may move the request
-to results, or it might drop it (if it was invalid)
-
----
-
-what if we just started with local queries and results?
-
-*/
-
 module.exports = function (opts) {
   //opts has {check, process, isQuery, isResponse}
   var state = {}
@@ -73,6 +53,19 @@ module.exports = function (opts) {
           }
         })
       }
+    }
+  }
+
+  function initial (weight) {
+    return {
+      ready: false,
+      checked: false,
+      checking: false,
+      weight: weight,
+      value: null,
+      requestedBy: {},
+      requestedFrom: {},
+      respondedTo: {}
     }
   }
 
@@ -125,6 +118,8 @@ module.exports = function (opts) {
               for(var k in state) {
                 delete state[k].requestedBy[peerId]
               }
+              //Q: how does the source decide to end?
+              //A: the network connection aborts the stream.
               return
             }
             //process this message and possibly update the state.
@@ -132,23 +127,13 @@ module.exports = function (opts) {
             for(var k in data) {
               if(isRequest(data[k])) {
                 //if we already have seen this query:
+                update = true
                 if(state[k]) {
                   state[k].requestedBy[peerId] = true
-                  update = true
                 }
                 else {
-                  state[k] = {
-                    ready: false,
-                    checked: false,
-                    checking: false,
-                    weight: increase(data[k]),
-                    value: null,
-                    requestedBy: {},
-                    requestedFrom: {},
-                    respondedTo: {}
-                  }
+                  state[k] = initial(data[k])
                   state[k].requestedBy[peerId] = true
-                  update = true
                 }
               }
               else if(isResponse(data[k])) {
@@ -181,17 +166,7 @@ module.exports = function (opts) {
       }
       else {
         update = true
-        state[k] = {
-          ready: false,
-          query: true,
-          checked: false,
-          checking: false,
-          weight: initialWeight,
-          value: null,
-          requestedBy: {},
-          requestedFrom: {},
-          respondedTo: {},
-        }
+        state[k] = initial(initialWeight)
         localCbs[k] = [cb]
       }
       if(update) next()
