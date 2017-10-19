@@ -45,15 +45,13 @@ tape('stream: send request', function (t) {
     t.deepEqual(msg, {query: -1})
     read_cb(null, {query: 'result'})
     t.equal(_value, 'result')
-    console.log(gq)
     t.end()
   })
 })
 
 tape('stream: send response', function (t) {
   var gq = GQ({foo: 'bar'})
-
-  var stream = gq.createStream(), a = [], read_cb
+  var stream = gq.createStream(), read_cb
 
   stream.sink(function (_, cb) {
     read_cb = cb
@@ -65,9 +63,38 @@ tape('stream: send response', function (t) {
   stream.source(null, function (err, msg) {
     if(err) throw err
     t.deepEqual(msg, {foo: 'bar'})
-    console.log(gq)
     t.end()
   })
 
 })
+
+tape('stream: broadcast request', function (t) {
+  var gq = GQ({})
+  var stream1 = gq.createStream(), read_cb1
+
+  stream1.sink(function (_, cb) {
+    read_cb1 = cb
+  })
+
+  var stream2 = gq.createStream(), read_cb2
+
+  stream2.sink(function (_, cb) {
+    read_cb2 = cb
+  })
+
+  //send a request
+  read_cb1(null, {foo: -1})
+
+  stream2.source(null, function (err, msg) {
+    if(err) throw err
+    t.deepEqual(msg, {foo: -2})
+    t.end()
+  })
+
+  stream1.source(null, function (err, msg) {
+    throw new Error('should not be called')
+  })
+
+})
+
 
