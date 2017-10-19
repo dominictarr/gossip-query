@@ -61,6 +61,10 @@ module.exports = function (opts) {
   }
 
   obv(function () {
+    //XXX: I think there could be some bugs in this because
+    //obv.set is triggered from inside the loop (if check/process)
+    //callback sync, which can happen.
+
     each(state, function (item, k) {
       //check the local store when new queries are added
       if(item.state === STATES.queried) {
@@ -204,4 +208,5 @@ module.exports = function (opts) {
     }
   }
 }
+
 
