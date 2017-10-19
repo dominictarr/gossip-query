@@ -7,7 +7,9 @@
     "type": "git",
     "url": "git://github.com/dominictarr/gossip-query.git"
   },
-  "dependencies": {},
+  "dependencies": {
+    "obv": "0.0.1"
+  },
   "devDependencies": {
     "tape": "^4.6.3"
   },
