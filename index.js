@@ -37,7 +37,7 @@ module.exports = function (opts) {
   }
 
   function onUpdate () {
-    for(var k in state) {
+    for(var k in state) (function (k) {
       //check the local store when new queries are added
       if(state[k].state === STATES.queried) {
         state[k].state = STATES.checking
@@ -61,14 +61,14 @@ module.exports = function (opts) {
           if(value && !state[k].value) {
             state[k].value = value
             if (localCbs[k]) {
-              var cbs = localCbs[k])
+              var cbs = localCbs[k]
               delete localCbs[k]
               while (cbs.length) cbs.shift()(null, value)
             }
           }
         })
       }
-    }
+    })(k)
   }
 
   function initial (weight) {
@@ -165,7 +165,7 @@ module.exports = function (opts) {
       }
     },
 
-    query: function (query, cb) {
+    query: function (k, cb) {
       //add to state object and update
       if(state[k]) {
         if(state[k].state == STATES.processed) cb(null, state[k].value)
