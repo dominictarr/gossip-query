@@ -18,4 +18,6 @@ tape('simple', function (t) {
     t.end()
   })
 
+  console.log(gq)
+
 })
