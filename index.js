@@ -7,6 +7,8 @@
   results (respond to any current queries)
 */
 
+var Obv = require('obv')
+
 var STATES = {
   queried: 1,
   checking: 2,
@@ -22,54 +24,80 @@ var STATES = {
   processed: 7 //now we can broadcast this
 }
 
+function each (obj, fn) {
+  for(var k in obj)
+    fn(obj[k], k, obj)
+}
+
+function isEmpty (o) {
+  for(var k in o) return false
+  return true
+}
+
 module.exports = function (opts) {
   //opts has {check, process, isQuery, isResponse}
   var state = {}
   var localCbs = {}
 
   var initialWeight = opts.initialWeight || -1
-  var increase = opts.increase || function (n) { return Number(n) + 1 }
+  var increment = opts.increment || function (n) { return Number(n) - 1 }
   var isRequest = opts.isRequest || function (value) { return typeof value === 'number' && value < 0 }
   var isResponse = opts.isResponse || function (value) { return !isRequest(value) }
 
-  function next () {
-    throw new Error('not yet implemented')
+  var obv = Obv()
+  obv.set(state)
+  function next (fn) {
+    if(!fn) obv.set(state)
+    else obv.once(fn, false)
   }
 
-  function onUpdate () {
-    for(var k in state) {
+
+  function callback (k, value) {
+    if (localCbs[k]) {
+      var cbs = localCbs[k]
+      delete localCbs[k]
+      while (cbs.length) cbs.shift()(null, value)
+    }
+  }
+
+  obv(function () {
+    //XXX: I think there could be some bugs in this because
+    //obv.set is triggered from inside the loop (if check/process)
+    //callback sync, which can happen.
+
+    each(state, function (item, k) {
       //check the local store when new queries are added
-      if(state[k].state === STATES.queried) {
-        state[k].state = STATES.checking
+      if(item.state === STATES.queried) {
+        item.state = STATES.checking
         opts.check(k, function (err, value) {
           if(err) console.trace(err) // TODO: delete or reject query?
-          state[k].state = STATES.checked
-          if(value && !state[k].value) {
-            state[k].value = value
+          if(value && !item.value) {
+            item.state = STATES.processed
+            callback(k, item.value = value)
           }
+          else
+            item.state = STATES.checked
+
+          obv.set(state)
         })
       }
 
       //process items received
-      if(state[k].value != null && state[k].state === STATES.responded) {
-        state[k].state = STATES.processing
-        opts.process(k, state[k].value, function (err, value) {
+      if(item.value != null && item.state === STATES.responded) {
+        item.state = STATES.processing
+        opts.process(k, item.value, function (err, value) {
           if(err) console.trace(err) // TODO: reject query?
-          state[k].state = STATES.processed
+          item.state = STATES.processed
           //this is the only place that localCbs is called,
           //except for in query(key, cb) if key is already ready.
-          if(value && !state[k].value) {
-            state[k].value = value
-            if (localCbs[k]) {
-              var cbs = localCbs[k]
-              delete localCbs[k]
-              while (cbs.length) cbs.shift()(null, value)
-            }
-          }
+          if(value)
+            callback(k, item.value = value)
+
+          obv.set(state)
         })
       }
-    }
-  }
+    })
+  })
 
   function initial (weight) {
     return {
@@ -144,7 +172,7 @@ module.exports = function (opts) {
                   state[k].requestedBy[peerId] = true
                 }
                 else {
-                  state[k] = initial(increase(data[k]))
+                  state[k] = initial(increment(data[k]))
                   state[k].requestedBy[peerId] = true
                 }
               }
@@ -165,7 +193,7 @@ module.exports = function (opts) {
       }
     },
 
-    query: function (query, cb) {
+    query: function (k, cb) {
       //add to state object and update
       if(state[k]) {
         if(state[k].state == STATES.processed) cb(null, state[k].value)
