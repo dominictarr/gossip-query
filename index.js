@@ -35,7 +35,7 @@ function isEmpty (o) {
 }
 
 module.exports = function (opts) {
-  //opts has {check, process, isQuery, isResponse}
+  //opts has {check, process, increment, isQuery, isResponse}
   var state = {}
   var localCbs = {}
 
@@ -116,7 +116,6 @@ module.exports = function (opts) {
       return {
         source: function (end, cb) {
           if(end) {
-            if(end !== true) console.trace(peerId, end)
             for(var k in state) {
               // TODO: use hashlru so we don't have to use delete
               delete state[k].respondedTo[peerId]
@@ -154,7 +153,6 @@ module.exports = function (opts) {
         sink: function (read) {
           read(null, function more (end, data) {
             if(end) {
-              if(end !== true) console.trace(peerId, end)
               for(var k in state) {
                 delete state[k].requestedBy[peerId]
               }
@@ -197,7 +195,7 @@ module.exports = function (opts) {
       //add to state object and update
       if(state[k]) {
         if(state[k].state == STATES.processed) cb(null, state[k].value)
-        else localCbs[k].push(cb)
+        else (localCbs[k] = localCbs[k] || []).push(cb)
       }
       else {
         update = true
@@ -208,4 +206,6 @@ module.exports = function (opts) {
     }
   }
 }
+
+
 
