@@ -96,7 +96,3 @@ tape('empty loop', function (t) {
 
 })
 
-
-
-
-
