@@ -218,7 +218,7 @@ module.exports = function (opts) {
       if(update) next()
     },
     progress: function () {
-      var prog = {start: 0, target: 0, current: 0}
+      var prog = {start: 0, current: 0, target: 0}
 
       for(var k in state) {
         prog.current += state[k].state
@@ -228,5 +228,4 @@ module.exports = function (opts) {
     }
   }
 }
-
 
