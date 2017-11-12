@@ -43,6 +43,10 @@ module.exports = function (opts) {
   var increment = opts.increment || function (n) { return Number(n) - 1 }
   var isRequest = opts.isRequest || function (value) { return typeof value === 'number' && value < 0 }
   var isResponse = opts.isResponse || function (value) { return !isRequest(value) }
+  var compare = opts.compare || function (a, b) {
+    return b - a
+  }
+  var maximum = opts.maximum || -3
 
   var obv = Obv()
   obv.set(state)
@@ -134,6 +138,7 @@ module.exports = function (opts) {
                 state[k].requestedBy[peerId] &&
                 !state[k].respondedTo[peerId]
               ) {
+                // change bool to integer, and send data since that index
                 state[k].respondedTo[peerId] = true
                 data[k] = state[k].value
               }
@@ -165,13 +170,15 @@ module.exports = function (opts) {
             for(var k in data) {
               if(isRequest(data[k])) {
                 //if we already have seen this query:
-                update = true
-                if(state[k]) {
-                  state[k].requestedBy[peerId] = true
-                }
-                else {
-                  state[k] = initial(increment(data[k]))
-                  state[k].requestedBy[peerId] = true
+                if(compare(data[k], maximum) < 0) {
+                  update = true
+                  if(state[k]) {
+                    state[k].requestedBy[peerId] = true
+                  }
+                  else {
+                    state[k] = initial(increment(data[k]))
+                    state[k].requestedBy[peerId] = true
+                  }
                 }
               }
               else if(isResponse(data[k])) {
@@ -192,6 +199,7 @@ module.exports = function (opts) {
     },
 
     query: function (k, cb) {
+      var update
       //add to state object and update
       if(state[k]) {
         if(state[k].state == STATES.processed) cb(null, state[k].value)
@@ -203,9 +211,17 @@ module.exports = function (opts) {
         localCbs[k] = [cb]
       }
       if(update) next()
+    },
+    progress: function () {
+      var prog = {start: 0, target: 0, current: 0}
+
+      for(var k in state) {
+        prog.current += state[k].state
+        prog.target += STATES.processed
+      }
+      return prog
     }
   }
 }
-
 
 
