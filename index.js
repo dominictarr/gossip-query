@@ -170,7 +170,8 @@ module.exports = function (opts) {
             var update = false
             for(var k in data) {
               var value = data[k]
-              if(!isQuery(k) || !(isRequest(value) || isResponse(value)) //ignore invalid requests
+               //ignore invalid requests
+              if(!isQuery(k) || !(isRequest(value) || isResponse(value)))
                 ;
               else if(isRequest(data[k])) {
                 //if we already have seen this query:
