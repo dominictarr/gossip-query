@@ -43,6 +43,7 @@ module.exports = function (opts) {
   var increment = opts.increment || function (n) { return Number(n) - 1 }
   var isRequest = opts.isRequest || function (value) { return typeof value === 'number' && value < 0 }
   var isResponse = opts.isResponse || function (value) { return !isRequest(value) }
+  var isQuery = opts.isQuery || function () { return true }
   var compare = opts.compare || function (a, b) {
     return b - a
   }
@@ -168,7 +169,10 @@ module.exports = function (opts) {
             //process this message and possibly update the state.
             var update = false
             for(var k in data) {
-              if(isRequest(data[k])) {
+              var value = data[k]
+              if(!isQuery(k) || !(isRequest(value) || isResponse(value)) //ignore invalid requests
+                ;
+              else if(isRequest(data[k])) {
                 //if we already have seen this query:
                 if(compare(data[k], maximum) < 0) {
                   update = true
