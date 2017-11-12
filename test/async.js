@@ -105,6 +105,9 @@ tape('stream: broadcast request', function (t) {
   var gq = GQ({})
   var stream1 = gq.createStream(), read_cb1
 
+  var p = gq.progress()
+  t.deepEqual(p, {start: 0, current: 0, target: 0})
+
   stream1.sink(function (_, cb) {
     read_cb1 = cb
   })
@@ -118,6 +121,10 @@ tape('stream: broadcast request', function (t) {
   //send a request
   read_cb1(null, {foo: -1})
 
+  var p = gq.progress()
+  t.ok(p.current < p.target)
+  t.ok(p.target > 0)
+
   stream2.source(null, function (err, msg) {
     if(err) throw err
     t.deepEqual(msg, {foo: -2})
@@ -129,11 +136,33 @@ tape('stream: broadcast request', function (t) {
   //response should make it back to stream1
   stream1.source(null, function (err, msg) {
     t.deepEqual(msg, {foo: 'bar'})
+    var p = gq.progress()
+    t.equal(p.current, p.target)
+    t.ok(p.target > 0)
+
     t.end()
   })
 
   check_cb() //not found
 
+})
+
+tape('stream: ignore distant request', function (t) {
+  var gq = GQ({})
+  var stream1 = gq.createStream(), read_cb1
+
+  var p = gq.progress()
+  t.deepEqual(p, {start: 0, current: 0, target: 0})
+
+  stream1.sink(function (_, cb) {
+    read_cb1 = cb
+  })
+
+  read_cb1(null, {foo: -4})
+
+  var p = gq.progress()
+  t.deepEqual(p, {start: 0, current: 0, target: 0})
+  t.end()
 })
 
 
