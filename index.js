@@ -1,12 +1,3 @@
-//1 user request
-
-/*
-  queried (check local cache) ->
-  requests (broadcast to select peers) ->
-  received (received requests) ->
-  results (respond to any current queries)
-*/
-
 var Obv = require('obv')
 
 var STATES = {
@@ -78,6 +69,7 @@ module.exports = function (opts) {
           if(err) console.trace(err) // TODO: delete or reject query?
           if(value && !item.value) {
             item.state = STATES.processed
+            //UPDATE VALUE
             callback(k, item.value = value)
           }
           else
@@ -96,6 +88,7 @@ module.exports = function (opts) {
           //this is the only place that localCbs is called,
           //except for in query(key, cb) if key is already ready.
           if(value)
+            //UPDATE VALUE
             callback(k, item.value = value)
 
           obv.set(state)
@@ -137,6 +130,7 @@ module.exports = function (opts) {
                 //idea: make respondedTo be a counter, for queries with multiple answers.
                 state[k].state === STATES.processed &&
                 state[k].requestedBy[peerId] &&
+                //responded to != state[k].value.length
                 !state[k].respondedTo[peerId]
               ) {
                 // change bool to integer, and send data since that index
