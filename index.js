@@ -170,13 +170,16 @@ module.exports = function (opts) {
               else if(isRequest(data[k])) {
                 //if we already have seen this query:
                 if(compare(data[k], maximum) < 0) {
-                  update = true
-                  if(state[k]) {
-                    state[k].requestedBy[peerId] = true
-                  }
-                  else {
+                  if(!state[k]) {
+                    update = true
                     state[k] = initial(increment(data[k]))
                     state[k].requestedBy[peerId] = true
+                  }
+                  else if (compare(data[k], state[k].weight) < 0){
+                    update = true
+                    state[k].requestedBy[peerId] = true
+                    //update the weight if this peer is closer to us
+                    state[k].weight = increment(data[k])
                   }
                 }
               }
