@@ -8,7 +8,8 @@ function GQ (store, id) {
     check: function (key, cb) { cb(null, store[key]) },
     process: function (key, value, cb) { cb(null, value) },
     isQuery: function (key) { return true },
-    isResponse: function (value) { return null != value  }
+    isResponse: function (value) { return null != value  },
+//    maximum: -5
   })
   gq.id = id
   return gq
@@ -89,10 +90,18 @@ tape('empty loop', function (t) {
     t.end()
   })
 
+  //weights should be the same, because they are both connected to 3
+  t.equal(g1.state['foo'].weight,g2.state['foo'].weight)
+  t.equal(g3.state['foo'].weight, -1)
+
   //when we connect a 4th peer, it will get queried
   //and broadcast it's answer
   var g4 = GQ({foo: 'baz'}, 4)
+
   connect(g1, g4)
 
 })
+
+
+
 
