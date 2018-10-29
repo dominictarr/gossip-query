@@ -5,19 +5,26 @@ flooding gossip search for p2p.
 ## pseudocode
 
 ```
-something is requested,
+something is requested (either by local user, or a peer)
 check for it locally (async),
-    if you have it
-      respond to peers who requested
-    else
-      ask peers,
-      process response (async)
-      respond to peers who requested
+  if you have it
+    respond to peers who requested it
+  else
+    ask other peers
+    if a peer responds
+      check it's correct
+      then respond to any peers who requested it
 ```
 > note: "peers who requested" can be the local user or a remote peer.
   if a second request is made for queries already in the system,
   the requestor is just added to the waiting callbacks, instead of starting
   that request over.
+
+when two peers connect, they exchange a table of the things they
+are looking for. when a request is made on behave of a peer,
+a hops counter is incremented. That way, a who may be several
+steps on from the source can see how far it has come, and may
+choose to ignore distant requests.
 
 ## protocol
 
@@ -25,7 +32,9 @@ requests are sent in the form of a JSON object, with the query string
 as the key
 {<query>: <hops> || <response>,...}
 
-this way, more than one request/response can be broadcast in a single packet.
+the <query> can be anything, it's just a way to identify that request.
+
+more than one request/response can be broadcast in a single packet.
 normally, `<hops>` is a negative integer
 (but could be some other representation
 of the weighting of how important the request is, as long as it's distinct
@@ -37,7 +46,8 @@ is the size of the blob.
 in a search query, the request would be the query string,
 and the result is responses (which might be message ids or something like that)
 
-for out of order messages, the response is just the message, and there
+for [ssb-ooo](http://github.com/ssbc/ssb-ooo) (out of order messages),
+the response is just the message, and there
 can never be more than one result.
 
 for protocols that can have multiple responses, a reduce function is supplied
@@ -71,8 +81,6 @@ iterate over the state objects and check which have data for them,
 this way it can just wait as long as necessary if the peer doesn't
 want anything yet.
 
-
-
 ## processing
 
 the processing step, (after a response is received from a peer)
@@ -82,4 +90,5 @@ that blob from the peer.
 ## License
 
 MIT
+
 
