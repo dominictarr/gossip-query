@@ -1,7 +1,7 @@
 {
   "name": "gossip-query",
   "description": "",
-  "version": "0.2.3",
+  "version": "1.0.0",
   "homepage": "https://github.com/dominictarr/gossip-query",
   "repository": {
     "type": "git",
