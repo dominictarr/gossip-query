@@ -15,8 +15,6 @@ var STATES = {
   processed: 7 //now we can broadcast this
 }
 
-var _timeout = 30e3
-
 function each (obj, fn) {
   for(var k in obj)
     fn(obj[k], k, obj)
@@ -41,7 +39,8 @@ module.exports = function (opts) {
     return b - a
   }
   var maximum = opts.maximum || -3
-  var timeout = opts.timeout || _timeout
+  var timeout = opts.timeout || 30e3
+  var nextTimeout = 0
 
   var obv = Obv()
   obv.set(state)
@@ -50,12 +49,21 @@ module.exports = function (opts) {
     else obv.once(fn, false)
   }
 
+  function ErrorTimeout() {
+    var err = new Error('gossip-query: request timed out')
+    err.name = 'request_timeout'
+    return err
+  }
 
-  function callback (k, value) {
+  function setTimestamp() {
+    return Date.now()
+  }
+
+  function callback (k, value, err) {
     if (localCbs[k]) {
       var cbs = localCbs[k]
       delete localCbs[k]
-      while (cbs.length) cbs.shift()(null, value)
+      while (cbs.length) cbs.shift()(err, value)
     }
   }
 
@@ -68,7 +76,7 @@ module.exports = function (opts) {
       //check the local store when new queries are added
       if(item.state === STATES.queried) {
         item.state = STATES.checking
-        item.ts = Date.now()
+        item.ts = setTimestamp()
         opts.check(k, function (err, value) {
           if(err) console.trace(err) // TODO: delete or reject query?
           if(value && !item.value) {
@@ -79,7 +87,7 @@ module.exports = function (opts) {
           else
             item.state = STATES.checked
 
-          item.ts = Date.now()
+          item.ts = setTimestamp()
 
           obv.set(state)
         })
@@ -88,11 +96,11 @@ module.exports = function (opts) {
       //process items received
       if(item.value != null && item.state === STATES.responded) {
         item.state = STATES.processing
-        item.ts = Date.now()
+        item.ts = setTimestamp()
         opts.process(k, item.value, function (err, value) {
           if(err) console.trace(err) // TODO: reject query?
           item.state = STATES.processed
-          item.ts = Date.now()
+          item.ts = setTimestamp()
           //this is the only place that localCbs is called,
           //except for in query(key, cb) if key is already ready.
           if(value)
@@ -113,7 +121,7 @@ module.exports = function (opts) {
       requestedBy: {},
       requestedFrom: {},
       respondedTo: {},
-      ts: Date.now()
+      ts: setTimestamp()
     }
   }
 
@@ -127,7 +135,7 @@ module.exports = function (opts) {
               // TODO: use hashlru so we don't have to use delete
               delete state[k].respondedTo[peerId]
               delete state[k].requestedFrom[peerId]
-            }
+x            }
             return
           }
           //read the next pieces of data from the state object.
@@ -221,7 +229,15 @@ module.exports = function (opts) {
         state[k] = initial(initialWeight)
         localCbs[k] = [cb]
       }
-      if(update) next()
+     if(update) next()
+    },
+    checkTimeout: function () {
+      var ts = Date.now()
+      for(var k in state)
+        if(state[k].ts + timeout < ts) {
+          callback(k, null, ErrorTimeout(k))
+          delete state[k]
+        }
     },
     progress: function () {
       var prog = {start: 0, current: 0, target: 0}
@@ -236,4 +252,5 @@ module.exports = function (opts) {
     }
   }
 }
+
 
