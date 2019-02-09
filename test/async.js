@@ -14,8 +14,8 @@ function once (fn) {
   }
 }
 
-function GQ (store) {
-  return GossipQuery({
+function GQ (store, opts) {
+  return GossipQuery(Object.assign({
     check: function (key, cb) {
       check_cb = once(cb)
     },
@@ -24,7 +24,7 @@ function GQ (store) {
     },
     isQuery: function (key) { return true },
     isResponse: function (value) { return null != value  }
-  })
+  }, opts))
 }
 
 /*
@@ -166,4 +166,36 @@ tape('stream: ignore distant request', function (t) {
 })
 
 
+tape('timeout', function (t) {
+  var timeout = 200
+  var gq = GQ({}, {timeout: timeout})
+  var start = Date.now()
+  var called = 0
+  gq.query('blah', function (err) {
+    console.log("timeout blah")
+    t.equal(++called, 1)
+    t.ok(Date.now() > start + timeout, 'current time is past timeout')
+    t.equal(err.name, 'request_timeout')
+  })
+
+  var i = 0
+  var int = setInterval(function () {
+    gq.checkTimeout()
+
+    if(++i == 1)
+      gq.query('zx', function (err) {
+        clearInterval(int)
+        t.equal(++called, 2)
+        t.ok(Date.now() > start + timeout + 100, 'current time is past timeout')
+        t.equal(err.name, 'request_timeout')
+        t.deepEqual(gq.progress(), {start:0, current: 0, target:0})
+        t.end()
+      })
+
+    if(i < 3)
+      t.notDeepEqual(gq.progress(), {start:0, current: 0, target:0})
+
+  }, 100)
+
+})
 
