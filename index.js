@@ -15,6 +15,8 @@ var STATES = {
   processed: 7 //now we can broadcast this
 }
 
+var _timeout = 30e3
+
 function each (obj, fn) {
   for(var k in obj)
     fn(obj[k], k, obj)
@@ -39,6 +41,7 @@ module.exports = function (opts) {
     return b - a
   }
   var maximum = opts.maximum || -3
+  var timeout = opts.timeout || _timeout
 
   var obv = Obv()
   obv.set(state)
@@ -65,6 +68,7 @@ module.exports = function (opts) {
       //check the local store when new queries are added
       if(item.state === STATES.queried) {
         item.state = STATES.checking
+        item.ts = Date.now()
         opts.check(k, function (err, value) {
           if(err) console.trace(err) // TODO: delete or reject query?
           if(value && !item.value) {
@@ -75,6 +79,8 @@ module.exports = function (opts) {
           else
             item.state = STATES.checked
 
+          item.ts = Date.now()
+
           obv.set(state)
         })
       }
@@ -82,9 +88,11 @@ module.exports = function (opts) {
       //process items received
       if(item.value != null && item.state === STATES.responded) {
         item.state = STATES.processing
+        item.ts = Date.now()
         opts.process(k, item.value, function (err, value) {
           if(err) console.trace(err) // TODO: reject query?
           item.state = STATES.processed
+          item.ts = Date.now()
           //this is the only place that localCbs is called,
           //except for in query(key, cb) if key is already ready.
           if(value)
@@ -104,7 +112,8 @@ module.exports = function (opts) {
       value: null,
       requestedBy: {},
       requestedFrom: {},
-      respondedTo: {}
+      respondedTo: {},
+      ts: Date.now()
     }
   }
 
@@ -218,8 +227,10 @@ module.exports = function (opts) {
       var prog = {start: 0, current: 0, target: 0}
 
       for(var k in state) {
-        prog.current += state[k].state
-        prog.target += STATES.processed
+        if(Date.now() - state[k].ts < timeout) {
+          prog.current += state[k].state
+          prog.target += STATES.processed
+        }
       }
       return prog
     }
