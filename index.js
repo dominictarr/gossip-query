@@ -35,6 +35,7 @@ module.exports = function (opts) {
   var isRequest = opts.isRequest || function (value) { return typeof value === 'number' && value < 0 }
   var isResponse = opts.isResponse || function (value) { return !isRequest(value) }
   var isQuery = opts.isQuery || function () { return true }
+  var process = opts.process || function (k, v, cb) { cb (null, v) }
   var compare = opts.compare || function (a, b) {
     return b - a
   }
@@ -77,8 +78,8 @@ module.exports = function (opts) {
       if(item.state === STATES.queried) {
         item.state = STATES.checking
         item.ts = setTimestamp()
-        opts.check(k, function (err, value) {
-          if(err) console.trace(err) // TODO: delete or reject query?
+        opts.check(k, function (_, value) {
+          //igore error
           if(value && !item.value) {
             item.state = STATES.processed
             //UPDATE VALUE
@@ -97,8 +98,11 @@ module.exports = function (opts) {
       if(item.value != null && item.state === STATES.responded) {
         item.state = STATES.processing
         item.ts = setTimestamp()
-        opts.process(k, item.value, function (err, value) {
-          if(err) console.trace(err) // TODO: reject query?
+        process(k, item.value, function (err, value) {
+          if(err) {
+            //stay in processing state
+            return
+          }
           item.state = STATES.processed
           item.ts = setTimestamp()
           //this is the only place that localCbs is called,
@@ -132,7 +136,6 @@ module.exports = function (opts) {
         source: function (end, cb) {
           if(end) {
             for(var k in state) {
-              // TODO: use hashlru so we don't have to use delete
               delete state[k].respondedTo[peerId]
               delete state[k].requestedFrom[peerId]
 x            }
@@ -182,7 +185,7 @@ x            }
             for(var k in data) {
               var value = data[k]
                //ignore invalid requests
-              if(!isQuery(k) || !(isRequest(value) || isResponse(value)))
+              if(!isQuery(k) || !(isRequest(value) || isResponse(value, k)))
                 ;
               else if(isRequest(data[k])) {
                 //if we already have seen this query:
@@ -252,5 +255,6 @@ x            }
     }
   }
 }
+
 
 
