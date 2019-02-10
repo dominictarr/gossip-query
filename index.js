@@ -1,3 +1,4 @@
+'use strict'
 var Obv = require('obv')
 
 var STATES = {
@@ -138,7 +139,7 @@ module.exports = function (opts) {
             for(var k in state) {
               delete state[k].respondedTo[peerId]
               delete state[k].requestedFrom[peerId]
-x            }
+            }
             return
           }
           //read the next pieces of data from the state object.
